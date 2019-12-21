@@ -1,13 +1,17 @@
 '''Este proyecto consiste, por el momento, en una interface 
 gráfica para la manipulación y resguardado de contraseñas '''
-
+from random import *
 from tkinter import * 
 from functools import * 
 from claseContr import *
+from tkinter import filedialog as fd
+from tkinter import messagebox as mb 
+from encriptar import*
+import string
 
 raiz=Tk()
 raiz.geometry("600x290")
-raiz.title("Gestor de contraseñas 1.0")
+raiz.title("KeyGest 1.0")
 raiz.iconbitmap("llaves.ico")
 raiz.resizable(0,0)
 
@@ -18,7 +22,7 @@ barraBuscar.grid(row=7,column=1,columnspan=4,padx=2,pady=6)
 
 resultados=[]
 grupo=[]
-keygen=0
+archivoActivo=None
 
 varUrl=StringVar()
 varEmail=StringVar()
@@ -30,7 +34,68 @@ info=StringVar()
 barraMenu=Menu(raiz)
 raiz.config(menu=barraMenu)
 
-def guardarRegistro( ):
+def nuevo():
+	if archivoActivo==None:
+		grupo=[]
+		raiz.title("KeyGest 1.0	"+"...........Nuevo archivo de contraseñas")
+		limpiarTodo()
+	else:
+		guardar("algo")
+		grupo=[]
+		raiz.title("KeyGest 1.0	"+"...........Nuevo archivo de contraseñas")
+		limpiarTodo()
+def abrirArchivo():
+	global grupo
+	global archivoActivo
+	grupo=[]
+	ubicacion=fd.askopenfilename(title="Abrir",initialdir="C:",filetypes=(("Archivos RAG","*.rag"),("Todos los archivos","*.*")))
+	nombre="          "+ubicacion[:30]+".........."+ubicacion[ubicacion.rfind("/"):len(ubicacion)]
+	archivoActivo=ubicacion
+	raiz.title("KeyGest 1.0	"+nombre)
+
+	archivoBin=open(ubicacion,"r")
+	recup=archivoBin.read()
+	archivoBin.close()
+
+	try:
+		recup=desencriptar(recup)
+
+		armarGrupo=eval(recup)
+		for i in armarGrupo:
+			grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4]))
+			limpiarTodo()
+		info.set("El archivo fue cargado correctamente")
+	except ValueError:
+		info.set("El archivo que intenta abrir no es compatible o está dañado")
+def guardar(activo=None):
+	global grupo
+	global archivoActivo
+	#-----------Preparacion de la lista Grupo para su guardado----------
+	exportar=[]
+	for i in grupo:
+		exportar.append(i.mostrar())
+	exportCript=encriptar(str(exportar))
+	#-------------------------------------------------------------------
+	if archivoActivo==None or activo==None:
+		extenciones=[("Archivos RAG","*.rag")]
+		save=fd.asksaveasfilename(filetypes = extenciones, defaultextension = extenciones)	
+	else:
+		save=archivoActivo
+
+	if save!='':
+		abrirSave=open(save, "w", encoding="utf-8")
+		try:
+			abrirSave.write(str(exportCript))
+			abrirSave.close()
+			nombre=str(save[:18]+"......"+save[len(save)-25:len(save)])
+			raiz.title("KeyGest 1.0	"+"......"+nombre)
+			info.set("Archivo guardado correctamente")
+			archivoActivo=save
+		except AttributeError:
+		 	info.set("Sin guardar")
+	else:
+		info.set("Sin guardar")
+def guardarRegistro():
 	global grupo
 	yaExiste=""
 	url=varUrl.get()
@@ -38,24 +103,32 @@ def guardarRegistro( ):
 	contraseña=varContraseña.get()
 	usuario=varUsuario.get()
 	observaciones=varObserv.get()
-
-	for i in grupo:
-		yaExiste=False
-		if i.url==url and i.email==email:
+	yaExiste=None
+	for i in range (len(grupo)):	
+		if grupo[i].url==url and grupo[i].email==email:
 			info.set("Ya existe un registro para esa cuenta")
-			yaExiste=True
-
-	if yaExiste==False:
+			yaExiste=i
+			break
+	if yaExiste==None:
 		if "@" in email:
 			if "."in url:	
 				grupo.append(Contraseña(url,email,contraseña,usuario,observaciones))
 				info.set("Registro ingresado correctamente: Actualmente existen "+str(len(grupo))+" registros en el archivo.")
 			else:
 				info.set("Error al cargar: Dirección Url no válida...pendiente: quitar color rojo al comenzar a escribir")
-				dispUrl.config(bg="red")			
+				dispUrl.config(bg="#DD7777")			
 		else:
 			info.set("Error al cargar:  Email no válido... pendiente: quitar color rojo al comenzar a escribir")
-			dispMail.config(bg="red")
+			dispMail.config(bg="#DD7777")
+	else:
+		if grupo[yaExiste].contraseña!=contraseña:
+			if mb.askyesno(message="Desea actualizar la contraseña?",title="Advertencia"):
+				aHistorial=grupo[yaExiste].contraseña
+				grupo[yaExiste]=Contraseña(url,email,contraseña,usuario,observaciones)
+				grupo[yaExiste].historial.append(aHistorial)	
+def eliminarRegistro():
+	if mb.askyesno(message="Desea eliminar el registro?",title="Advertencia"):
+		pass
 def buscar():
 	global grupo
 	global listResult
@@ -72,7 +145,6 @@ def buscar():
 		for i in range (len(grupo)):
 			if entrada in grupo[i].url or entrada in grupo[i].email:
 				resultados.append([i,grupo[i].url,"/",grupo[i].email])
-
 
 		cantidadRes=len(resultados)
 		if cantidadRes!=0:
@@ -146,20 +218,25 @@ def mostrarContraseña():
 		dispContr.config(show="*")
 		verContr.config(image=imgVer)	
 		info.set("Asi esta mejor :)")
+def limpiarTodo():
+	varUrl.set("")
+	varEmail.set("")
+	varContraseña.set("")
+	varUsuario.set("")
+	varObserv.set("")
+	info.set("")
 def salir():
 	respuesta= mb.askyesno("Cuidado", "¿Quiere salir del programa?")
 	if respuesta==True:
-		raiz.destroy()
-
-	
+		raiz.destroy()	
 #-------------------- Barra de Menú------------------------
 
 menuArchivo=Menu(barraMenu,tearoff=0,activeborderwidth=4)
 barraMenu.add_cascade(label="Archivo",menu=menuArchivo)
-menuArchivo.add_command(label="Nuevo")
-menuArchivo.add_command(label="Abrir")
-menuArchivo.add_command(label="Guardar",command=partial(guardarRegistro))
-menuArchivo.add_command(label="Guardar Como")
+menuArchivo.add_command(label="Nuevo",command=partial(nuevo))
+menuArchivo.add_command(label="Abrir",command=abrirArchivo)
+menuArchivo.add_command(label="Guardar",command=partial(guardar,"algo"))
+menuArchivo.add_command(label="Guardar Como",command=partial(guardar))
 menuArchivo.add_command(label="Cerrar")
 menuArchivo.add_separator()
 menuArchivo.add_command(label="Importar CSV")
@@ -172,6 +249,10 @@ barraMenu.add_cascade(label="Edicion",menu=menuEdicion)
 menuEdicion.add_command(label="Deshacer")
 menuEdicion.add_command(label="Rehacer")
 menuEdicion.add_command(label="Copiar Todo")
+
+menuVer=Menu(barraMenu,tearoff=0,activeborderwidth=4)
+barraMenu.add_cascade(label="Ver",menu=menuVer)
+menuVer.add_command(label="Ver zócalo informativo")
 
 menuConfiguracion=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Configuración",menu=menuConfiguracion)
@@ -189,7 +270,7 @@ menuAyuda.add_command(label="Acerca de")
 imgFondo=PhotoImage(file="llaves.png")
 fondo=Label(raiz,image=imgFondo).grid(row=2,column=1,rowspan=5)
 botonesFrame=Frame(raiz)
-botonesFrame.grid(row=2,column=3,rowspan=5)
+botonesFrame.grid(row=2,column=3,rowspan=4)
 #--------------------------------------------------------------
 #-----------Label y Entry del campo url------------------------
 labUrl=Label(raiz,width=15,text="Url de la Pagina",font=(Fuente))
@@ -231,17 +312,21 @@ verContr.grid(row=1,column=1,sticky="E")
 
 botonRandom=Button(contrFrame,width=5,text="Nueva",font=("Arial",11),bg="#CCCCCC")
 botonRandom.grid(row=1,column=2)
-botonRandom.config(command=partial(generarContraseña,18))
+botonRandom.config(command=partial(generarContraseña,20))
 copiContr=Button(botonesFrame,width=5,text="copiar",font=(Fuente),command=partial(copiar,varContraseña))
 copiContr.grid(row=5,column=2,padx=10,sticky="E")
 #----------------------------------------------------------------
-#----------Label y Entry del campo Observaciones  ---------------
-labExtra=Label(raiz,width=15,text="Observaciones",font=(Fuente))
-labExtra.grid(row=6,column=1)
-dispExtra=Entry(raiz,width=30,font=(Fuente),textvariable=varObserv)
-dispExtra.grid(row=6,column=2,sticky="W")
-copiExtra=Button(botonesFrame,width=5,text="pegar",font=(Fuente),command=partial(pegar,varObserv))
-copiExtra.grid(row=6,column=2,padx=10,sticky="E")
+#----------Boton extra Observaciones  ---------------
+btnExtra=Button(raiz,width=15,text="Observaciones",font=(Fuente))
+btnExtra.grid(row=6,column=1,sticky="s")
+#-------------------- Ingresar y eliminar registro-----------------------
+btnIngresarReg=Button(raiz,text="Ingresar Registro",font=Fuente,bg="#CCEECC",command=partial(guardarRegistro))
+btnIngresarReg.grid(row=6,column=2,sticky="w")
+btnEliminarReg=Button(raiz,text="Eliminar Registro",font=Fuente,bg="#EECCCC",command=partial(eliminarRegistro))
+btnEliminarReg.grid(row=6,column=2,sticky="e")
+btnLimpiar=Button(raiz,text="Limpiar",font=Fuente,command=partial(limpiarTodo))
+btnLimpiar.grid(row=6,column=3)
+
 #--------------------barra de busqueda-----------------------
 aBuscar=StringVar()
 varLista=StringVar(barraBuscar)
@@ -269,18 +354,6 @@ infoLabel0.pack(side="left")
 
 infoLabel=Label(campoInfo,width=67,font=("Arial",10),textvariable=info,justify="left",bg="#999999")
 infoLabel.pack(side="right",expand=True)
-#-------------------------------------------------------------
-for i in ("el","siguiente","texto","tiene","la","finalidad","de","generar","registros","para","probar","el","funcionamiento","de","la","aplicacio","La",
-			"revolución", "de",  "Data", "no" ,"solo" ,"se", "refiere", "al" ,"exponencial", "crecimiento", "del", "crecimiento", 
-			"de", "los", "datos", "también", "recae", "en", "el", "mejoramiento", "de" ,"los", "métodos", "estadísticos", "y", "computacionales",
-			"La", "capacidad" ,"de", "cómputo", "se" ,"dobla", "cada", "18", "meses", "según", "la" ,"Ley", "de" ,"Moore", "pero" ,"eso", "es", "nada", "a", 
-			"comparación", "de", "un", "algoritmo", "con", "una", "serie" ,"de", "reglas" ,"que", "puede", "ser", "usado", "para", "resolver" ,"un", 
-			"problema", "miles" ,"de" ,"veces", "más", "rápido" ,"que" ,"un", "método", "computacional", "convencional", "Shaw" ,"2014", 
-			"He" ,"aquí" ,"la" ,"importancia", "en", "el", "mundo" ,"académico","y","para","rellenar","un","poco","mas","acá","agrego","otro","poco","de",
-			"texto","a","ver","si","el","cargador","de","contraseñas","funciona","bien","con","tres","digitos"):
-	grupo.append(Contraseña(i+".com",i[::-1]+"@gmail.com","weruhwerijds","gual_disnei","todo bien"))
-
 
 raiz.mainloop()
-
 
