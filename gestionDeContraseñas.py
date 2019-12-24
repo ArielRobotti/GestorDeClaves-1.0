@@ -7,7 +7,8 @@ from claseContr import *
 from tkinter import filedialog as fd
 from tkinter import messagebox as mb 
 from encriptar import*
-import string
+
+
 
 raiz=Tk()
 raiz.geometry("600x290")
@@ -23,6 +24,7 @@ barraBuscar.grid(row=7,column=1,columnspan=4,padx=2,pady=6)
 resultados=[]
 grupo=[]
 archivoActivo=None
+registroActual=None
 
 varUrl=StringVar()
 varEmail=StringVar()
@@ -33,40 +35,49 @@ info=StringVar()
 
 barraMenu=Menu(raiz)
 raiz.config(menu=barraMenu)
-
 def nuevo():
+	global grupo
+	global resultados
+	global archivoActivo
 	if archivoActivo==None:
 		grupo=[]
 		raiz.title("KeyGest 1.0	"+"...........Nuevo archivo de contraseñas")
 		limpiarTodo()
 	else:
 		guardar("algo")
+		print("estoy aca")
+		archivoActivo=None
 		grupo=[]
+		#resultados=[]
+		buscar()
 		raiz.title("KeyGest 1.0	"+"...........Nuevo archivo de contraseñas")
 		limpiarTodo()
 def abrirArchivo():
 	global grupo
 	global archivoActivo
-	grupo=[]
+
 	ubicacion=fd.askopenfilename(title="Abrir",initialdir="C:",filetypes=(("Archivos RAG","*.rag"),("Todos los archivos","*.*")))
 	nombre="          "+ubicacion[:30]+".........."+ubicacion[ubicacion.rfind("/"):len(ubicacion)]
-	archivoActivo=ubicacion
-	raiz.title("KeyGest 1.0	"+nombre)
-
-	archivoBin=open(ubicacion,"r")
-	recup=archivoBin.read()
-	archivoBin.close()
-
-	try:
-		recup=desencriptar(recup)
-
-		armarGrupo=eval(recup)
-		for i in armarGrupo:
-			grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4]))
+	if ubicacion!='':	
+		archivoBin=open(ubicacion,"r")
+		recup=archivoBin.read()
+		archivoBin.close()
+		try:
+			recup=desencriptar(recup)
+			armarGrupo=eval(recup)
+			grupo=[]
+			for i in armarGrupo:
+				grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4]))
 			limpiarTodo()
-		info.set("El archivo fue cargado correctamente")
-	except ValueError:
-		info.set("El archivo que intenta abrir no es compatible o está dañado")
+			raiz.title("KeyGest 1.0	"+nombre)
+			if archivoActivo!=None:
+				guardar("como")
+			archivoActivo=ubicacion
+			info.set("El archivo fue cargado correctamente")
+			limpiarTodo()
+			buscar()
+		except ValueError:
+			info.set("El archivo que intenta abrir no es compatible o está dañado")		
 def guardar(activo=None):
 	global grupo
 	global archivoActivo
@@ -76,13 +87,12 @@ def guardar(activo=None):
 		exportar.append(i.mostrar())
 	exportCript=encriptar(str(exportar))
 	#-------------------------------------------------------------------
-	if archivoActivo==None or activo==None:
+	if archivoActivo==None or activo==None: 	#entra en el if si no hay archivo activo o cuando se presiona guardar como
 		extenciones=[("Archivos RAG","*.rag")]
 		save=fd.asksaveasfilename(filetypes = extenciones, defaultextension = extenciones)	
 	else:
-		save=archivoActivo
-
-	if save!='':
+		save=archivoActivo						#entra si hay archivo activo y se presiono guardar
+	if save!='':								
 		abrirSave=open(save, "w", encoding="utf-8")
 		try:
 			abrirSave.write(str(exportCript))
@@ -97,7 +107,6 @@ def guardar(activo=None):
 		info.set("Sin guardar")
 def guardarRegistro():
 	global grupo
-	yaExiste=""
 	url=varUrl.get()
 	email=varEmail.get()
 	contraseña=varContraseña.get()
@@ -114,6 +123,7 @@ def guardarRegistro():
 			if "."in url:	
 				grupo.append(Contraseña(url,email,contraseña,usuario,observaciones))
 				info.set("Registro ingresado correctamente: Actualmente existen "+str(len(grupo))+" registros en el archivo.")
+				guardar("algo")
 			else:
 				info.set("Error al cargar: Dirección Url no válida...pendiente: quitar color rojo al comenzar a escribir")
 				dispUrl.config(bg="#DD7777")			
@@ -125,10 +135,18 @@ def guardarRegistro():
 			if mb.askyesno(message="Desea actualizar la contraseña?",title="Advertencia"):
 				aHistorial=grupo[yaExiste].contraseña
 				grupo[yaExiste]=Contraseña(url,email,contraseña,usuario,observaciones)
-				grupo[yaExiste].historial.append(aHistorial)	
+				grupo[yaExiste].historial.append(aHistorial)
 def eliminarRegistro():
-	if mb.askyesno(message="Desea eliminar el registro?",title="Advertencia"):
-		pass
+	global registroActual
+	#print(grupo[registroActual])
+	try:
+		grupo[registroActual]
+		if mb.askyesno(message="Desea eliminar el registro?",title="Advertencia"):
+			grupo.pop(registroActual)
+		limpiarTodo()
+		buscar()
+	except TypeError:
+		info.set("Seleccione y cargue el registro que desea eliminar")
 def buscar():
 	global grupo
 	global listResult
@@ -137,11 +155,9 @@ def buscar():
 	if entrada=="":
 		info.set("Escriba lo que quiere buscar o escriba * para ver todo")
 		varLista.set("Especifique lo que quiere buscar")
-	
 	else:
 		if entrada=="*":		#si el usuario quere ver todo
 			entrada=""			#la cadena vacia devuelve como resultado todos los elementos de la lista
-
 		for i in range (len(grupo)):
 			if entrada in grupo[i].url or entrada in grupo[i].email:
 				resultados.append([i,grupo[i].url,"/",grupo[i].email])
@@ -190,14 +206,16 @@ def generarContraseña(nivel):
 	btnCancel=Button(contrFrame,width=5,text="Cancel",font=("Arial",11),bg="#EECCCC",command=partial(cancelar))
 	btnCancel.grid(row=1,column=2)
 def mostrarRegistro():
+	global registroActual
 	try:
-		indice=int(varLista.get().replace(",","    ")[1:5])
-		contraseñaSel=grupo[indice]
-		varUrl.set(contraseñaSel.url)
-		varEmail.set(contraseñaSel.email)
-		varContraseña.set(contraseñaSel.contraseña)
-		varUsuario.set(contraseñaSel.usuario)
-		varObserv.set(contraseñaSel.observaciones)
+		registroActual=int(varLista.get().replace(",","    ")[1:5])
+		registroActivo=grupo[registroActual]
+
+		varUrl.set(registroActivo.url)
+		varEmail.set(registroActivo.email)
+		varContraseña.set(registroActivo.contraseña)
+		varUsuario.set(registroActivo.usuario)
+		varObserv.set(registroActivo.observaciones)
 	except ValueError:
 		varLista.set("SELECCIONE UNA OPCION DE LA LISTA")	
 def copiar(que):
@@ -225,34 +243,68 @@ def limpiarTodo():
 	varUsuario.set("")
 	varObserv.set("")
 	info.set("")
+def importCsv():
+	global grupo
+	objetoCsv=fd.askopenfilename(title="Importar CSV",initialdir="C:",filetypes=(("Archivos CSB","*.csv"),("Todos los archivos","*.*")))
+	csvLista=[]
+	convertContrList=[]
+	try:
+		with open(objetoCsv,"r") as archivo:
+			for linea in archivo:
+				csvLista.append(linea.split(","))
+		for i in csvLista:
+			url=i[0]
+			email=i[2]
+			contraseña=i[3]
+			grupo.append(Contraseña(url,email,contraseña))
+	except FileNotFoundError:
+		pass
+def exportCsv():
+	global grupo
+	export="url,email usuario,contraseña\n"
+	if mb.askyesno("Advertencia: ","Al exportar en formato CVS cualquiera que abra el archivo CVS podrá ver las contraseñas que contiene.\n Desea exportar de todos modos?"):
+		for i in grupo:
+			export=export+i.url+','+i.email+','+i.contraseña+'\n'
+		extenciones=[("Archivos csv","*.csv")]
+		saveUbicacion=fd.asksaveasfilename(filetypes = extenciones, defaultextension = extenciones)
+		try:
+			archSalida=open(saveUbicacion,"w")
+			archSalida.write(export)
+			archSalida.close()
+		except FileNotFoundError and FileNotFoundError:
+			pass
+
 def salir():
 	respuesta= mb.askyesno("Cuidado", "¿Quiere salir del programa?")
 	if respuesta==True:
 		raiz.destroy()	
 #-------------------- Barra de Menú------------------------
 
-menuArchivo=Menu(barraMenu,tearoff=0,activeborderwidth=4)
+menuArchivo=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Archivo",menu=menuArchivo)
 menuArchivo.add_command(label="Nuevo",command=partial(nuevo))
 menuArchivo.add_command(label="Abrir",command=abrirArchivo)
-menuArchivo.add_command(label="Guardar",command=partial(guardar,"algo"))
+menuArchivo.add_command(label="Guardar",command=partial(guardar,"como"))
 menuArchivo.add_command(label="Guardar Como",command=partial(guardar))
 menuArchivo.add_command(label="Cerrar")
 menuArchivo.add_separator()
-menuArchivo.add_command(label="Importar CSV")
-menuArchivo.add_command(label="Exportar CSV")
+menuArchivo.add_command(label="Importar CSV",command=partial(importCsv))
+menuArchivo.add_command(label="Exportar CSV",command=partial(exportCsv))
 menuArchivo.add_separator()
 menuArchivo.add_command(label="Salir",activebackground="#AA3333",command=partial(salir))
 
-menuEdicion=Menu(barraMenu,tearoff=0,activeborderwidth=4)
+menuEdicion=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Edicion",menu=menuEdicion)
 menuEdicion.add_command(label="Deshacer")
 menuEdicion.add_command(label="Rehacer")
 menuEdicion.add_command(label="Copiar Todo")
 
-menuVer=Menu(barraMenu,tearoff=0,activeborderwidth=4)
+menuVer=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Ver",menu=menuVer)
 menuVer.add_command(label="Ver zócalo informativo")
+menuVer.add_command(label="Ver historial de contraseñas")
+
+
 
 menuConfiguracion=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Configuración",menu=menuConfiguracion)
@@ -317,15 +369,15 @@ copiContr=Button(botonesFrame,width=5,text="copiar",font=(Fuente),command=partia
 copiContr.grid(row=5,column=2,padx=10,sticky="E")
 #----------------------------------------------------------------
 #----------Boton extra Observaciones  ---------------
-btnExtra=Button(raiz,width=15,text="Observaciones",font=(Fuente))
+btnExtra=Button(raiz,text="Observaciones",font=(Fuente))
 btnExtra.grid(row=6,column=1,sticky="s")
 #-------------------- Ingresar y eliminar registro-----------------------
 btnIngresarReg=Button(raiz,text="Ingresar Registro",font=Fuente,bg="#CCEECC",command=partial(guardarRegistro))
 btnIngresarReg.grid(row=6,column=2,sticky="w")
 btnEliminarReg=Button(raiz,text="Eliminar Registro",font=Fuente,bg="#EECCCC",command=partial(eliminarRegistro))
 btnEliminarReg.grid(row=6,column=2,sticky="e")
-btnLimpiar=Button(raiz,text="Limpiar",font=Fuente,command=partial(limpiarTodo))
-btnLimpiar.grid(row=6,column=3)
+btnLimpiar=Button(raiz,text="Limpiar",font=("Arial Black",10),command=partial(limpiarTodo))
+btnLimpiar.grid(row=6,column=3 )
 
 #--------------------barra de busqueda-----------------------
 aBuscar=StringVar()
@@ -354,6 +406,7 @@ infoLabel0.pack(side="left")
 
 infoLabel=Label(campoInfo,width=67,font=("Arial",10),textvariable=info,justify="left",bg="#999999")
 infoLabel.pack(side="right",expand=True)
+
 
 raiz.mainloop()
 
