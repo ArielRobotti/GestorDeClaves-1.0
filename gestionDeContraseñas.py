@@ -62,6 +62,8 @@ def abrirArchivo():
 		archivoBin=open(ubicacion,"r")
 		recup=archivoBin.read()
 		archivoBin.close()
+		if archivoActivo!=None:
+			guardar("como")
 		try:
 			recup=desencriptar(recup)
 			armarGrupo=eval(recup)
@@ -70,8 +72,7 @@ def abrirArchivo():
 				grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4]))
 			limpiarTodo()
 			raiz.title("KeyGest 1.0	"+nombre)
-			if archivoActivo!=None:
-				guardar("como")
+			
 			archivoActivo=ubicacion
 			info.set("El archivo fue cargado correctamente")
 			limpiarTodo()
@@ -143,8 +144,8 @@ def eliminarRegistro():
 		grupo[registroActual]
 		if mb.askyesno(message="Desea eliminar el registro?",title="Advertencia"):
 			grupo.pop(registroActual)
-		limpiarTodo()
-		buscar()
+			limpiarTodo()
+			buscar()
 	except TypeError:
 		info.set("Seleccione y cargue el registro que desea eliminar")
 def buscar():
