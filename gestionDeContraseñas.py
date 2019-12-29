@@ -8,8 +8,6 @@ from tkinter import filedialog as fd
 from tkinter import messagebox as mb 
 from encriptar import*
 
-
-
 raiz=Tk()
 raiz.geometry("600x290")
 raiz.title("KeyGest 1.0")
@@ -24,7 +22,8 @@ barraBuscar.grid(row=7,column=1,columnspan=4,padx=2,pady=6)
 resultados=[]
 grupo=[]
 archivoActivo=None
-registroActual=None
+registroActivo=None
+indiceRegAct=None
 
 varUrl=StringVar()
 varEmail=StringVar()
@@ -37,7 +36,7 @@ barraMenu=Menu(raiz)
 raiz.config(menu=barraMenu)
 def nuevo():
 	global grupo
-	global resultados
+	#global resultados
 	global archivoActivo
 	if archivoActivo==None:
 		grupo=[]
@@ -45,13 +44,14 @@ def nuevo():
 		limpiarTodo()
 	else:
 		guardar("algo")
-		print("estoy aca")
 		archivoActivo=None
 		grupo=[]
-		#resultados=[]
-		buscar()
+		buscar()	
 		raiz.title("KeyGest 1.0	"+"...........Nuevo archivo de contraseñas")
 		limpiarTodo()
+	btnNuevoRegistro.config(state="active")
+	btnIngresarReg.config(state="active")
+	botonBuscar.config(state="active")
 def abrirArchivo():
 	global grupo
 	global archivoActivo
@@ -59,26 +59,27 @@ def abrirArchivo():
 	ubicacion=fd.askopenfilename(title="Abrir",initialdir="C:",filetypes=(("Archivos RAG","*.rag"),("Todos los archivos","*.*")))
 	nombre="          "+ubicacion[:30]+".........."+ubicacion[ubicacion.rfind("/"):len(ubicacion)]
 	if ubicacion!='':	
-		archivoBin=open(ubicacion,"r")
-		recup=archivoBin.read()
-		archivoBin.close()
+		abrirArchivo=open(ubicacion,"r")
+		leerArchivo=abrirArchivo.read()
+		abrirArchivo.close()
 		if archivoActivo!=None:
 			guardar("como")
 		try:
-			recup=desencriptar(recup)
-			armarGrupo=eval(recup)
+			leerArchivo=desencriptar(leerArchivo)
+			armarGrupo=eval(leerArchivo)
 			grupo=[]
 			for i in armarGrupo:
-				grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4]))
-			limpiarTodo()
+				grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4],i[5]))
 			raiz.title("KeyGest 1.0	"+nombre)
-			
 			archivoActivo=ubicacion
 			info.set("El archivo fue cargado correctamente")
 			limpiarTodo()
 			buscar()
+			btnNuevoRegistro.config(state="active")
+			btnIngresarReg.config(state="active")
+			botonBuscar.config(state="active")
 		except ValueError:
-			info.set("El archivo que intenta abrir no es compatible o está dañado")		
+			info.set("El archivo que intenta abrir no es compatible o está dañado")
 def guardar(activo=None):
 	global grupo
 	global archivoActivo
@@ -98,16 +99,23 @@ def guardar(activo=None):
 		try:
 			abrirSave.write(str(exportCript))
 			abrirSave.close()
+			info.set("Archivo Guardado")
 			nombre=str(save[:18]+"......"+save[len(save)-25:len(save)])
 			raiz.title("KeyGest 1.0	"+"......"+nombre)
-			info.set("Archivo guardado correctamente")
+			#info.set("Archivo guardado correctamente")
 			archivoActivo=save
+			btnNuevoRegistro.config(state="active")
+			btnIngresarReg.config(state="active")
+			botonBuscar.config(state="active")
+
 		except AttributeError:
-		 	info.set("Sin guardar")
+			info.set("Sin guardar")
 	else:
 		info.set("Sin guardar")
 def guardarRegistro():
 	global grupo
+	global registroActivo
+	global indiceRegAct
 	url=varUrl.get()
 	email=varEmail.get()
 	contraseña=varContraseña.get()
@@ -123,8 +131,8 @@ def guardarRegistro():
 		if "@" in email:
 			if "."in url:	
 				grupo.append(Contraseña(url,email,contraseña,usuario,observaciones))
-				info.set("Registro ingresado correctamente: Actualmente existen "+str(len(grupo))+" registros en el archivo.")
 				guardar("algo")
+				info.set("Registro ingresado correctamente: Actualmente existen "+str(len(grupo))+" registros en el archivo.")
 			else:
 				info.set("Error al cargar: Dirección Url no válida...pendiente: quitar color rojo al comenzar a escribir")
 				dispUrl.config(bg="#DD7777")			
@@ -138,12 +146,11 @@ def guardarRegistro():
 				grupo[yaExiste]=Contraseña(url,email,contraseña,usuario,observaciones)
 				grupo[yaExiste].historial.append(aHistorial)
 def eliminarRegistro():
-	global registroActual
-	#print(grupo[registroActual])
+	global indiceRegAct
 	try:
-		grupo[registroActual]
+		grupo[indiceRegAct]
 		if mb.askyesno(message="Desea eliminar el registro?",title="Advertencia"):
-			grupo.pop(registroActual)
+			grupo.pop(indiceRegAct)
 			limpiarTodo()
 			buscar()
 	except TypeError:
@@ -162,14 +169,13 @@ def buscar():
 		for i in range (len(grupo)):
 			if entrada in grupo[i].url or entrada in grupo[i].email:
 				resultados.append([i,grupo[i].url,"/",grupo[i].email])
-
 		cantidadRes=len(resultados)
 		if cantidadRes!=0:
 			varLista.set("Seleccione un resultado y presione el boton cargar")
 			listResult.destroy()
 			listResult=OptionMenu(barraBuscar,varLista,*resultados)
 			listResult.grid(row=1,column=3)
-			listResult.config(width=42)
+			listResult.config(width=46)
 			if cantidadRes==1:
 				info.set("Se obtuvo 1 resultado para su busqueda")
 			else:
@@ -179,13 +185,17 @@ def buscar():
 			varLista.set("No se encontraron resultados")
 			listResult=OptionMenu(barraBuscar,varLista,"")
 			listResult.grid(row=1,column=3)
-			listResult.config(width=42)
+			listResult.config(width=46)
 			info.set("No hay resultados para la busqueda. Busque por aproximación")
 def generarContraseña(nivel):
 	def cambiar(nueva):
+		global registroActivo
 		dispContr2.destroy()
 		btnGrabar.destroy()
-		btnCancel.destroy()
+		btnCancel.destroy()		
+		if registroActivo!=None:
+			registroActivo.historial.append(str(registroActivo.contraseña))
+			registroActivo.contraseña=nueva
 		varContraseña.set(nueva)
 		info.set("Contraseña actualizada exitosamente")
 	def cancelar():
@@ -195,28 +205,30 @@ def generarContraseña(nivel):
 		info.set("Operacion Cancelada")
 
 	caracteres="abcdefghijklmnñopqrstuvwxyz+-_/@ABCDEFGHIJKLMNÑOPQRSTUVWXYZ123456789"
-	devolver=""
+	randKey=""
 	for i in range(nivel):
 		a=caracteres[randrange(len(caracteres))]
-		devolver=devolver+a
+		randKey=randKey+a
 	info.set("Presione Grabar para actualizar la contraseña o Cancelar para conservar la anterior")
-	dispContr2=Label(contrFrame,width=21,font=("Calisto MT",13,"bold"),text=devolver)
+	dispContr2=Label(contrFrame,width=21,font=("Calisto MT",13,"bold"),text=randKey)
 	dispContr2.grid(row=1,column=1,sticky="W")
-	btnGrabar=Button(contrFrame,width=6,text="Grabar",font=("Arial",11),bg="#CCEECC",command=partial(cambiar,devolver))
+	btnGrabar=Button(contrFrame,width=6,text="Grabar",font=("Arial",11),bg="#CCEECC",command=partial(cambiar,randKey))
 	btnGrabar.grid(row=1,column=1,sticky="E")
 	btnCancel=Button(contrFrame,width=5,text="Cancel",font=("Arial",11),bg="#EECCCC",command=partial(cancelar))
 	btnCancel.grid(row=1,column=2)
 def mostrarRegistro():
-	global registroActual
+	global indiceRegAct
+	global registroActivo
 	try:
-		registroActual=int(varLista.get().replace(",","    ")[1:5])
-		registroActivo=grupo[registroActual]
-
+		indiceRegAct=int(varLista.get().replace(",","    ")[1:5])
+		registroActivo=grupo[indiceRegAct]
 		varUrl.set(registroActivo.url)
 		varEmail.set(registroActivo.email)
 		varContraseña.set(registroActivo.contraseña)
 		varUsuario.set(registroActivo.usuario)
-		varObserv.set(registroActivo.observaciones)
+		btnHisto.config(state="active")
+		btnEliminarReg.config(state="active")
+
 	except ValueError:
 		varLista.set("SELECCIONE UNA OPCION DE LA LISTA")	
 def copiar(que):
@@ -237,13 +249,23 @@ def mostrarContraseña():
 		dispContr.config(show="*")
 		verContr.config(image=imgVer)	
 		info.set("Asi esta mejor :)")
+def historial():
+	global registroActivo
+	print(registroActivo.historial)
 def limpiarTodo():
+	global indiceRegAct
+	global registroActivo
 	varUrl.set("")
 	varEmail.set("")
 	varContraseña.set("")
 	varUsuario.set("")
 	varObserv.set("")
 	info.set("")
+	indiceRegAct=None
+	registroActivo=None
+	btnHisto.config(state="disabled")
+	btnEliminarReg.config(state="disabled")
+	varLista.set("Seleccione un elemento de la lista")
 def importCsv():
 	global grupo
 	objetoCsv=fd.askopenfilename(title="Importar CSV",initialdir="C:",filetypes=(("Archivos CSB","*.csv"),("Todos los archivos","*.*")))
@@ -257,7 +279,10 @@ def importCsv():
 			url=i[0]
 			email=i[2]
 			contraseña=i[3]
-			grupo.append(Contraseña(url,email,contraseña))
+			grupo.append(Contraseña(url,email,contraseña[:len(contraseña)-1]))
+		btnNuevoRegistro.config(state="active")
+		btnIngresarReg.config(state="active")
+		botonBuscar.config(state="active")	
 	except FileNotFoundError:
 		pass
 def exportCsv():
@@ -274,6 +299,8 @@ def exportCsv():
 			archSalida.close()
 		except FileNotFoundError and FileNotFoundError:
 			pass
+def cerrar():
+	pass
 
 def salir():
 	respuesta= mb.askyesno("Cuidado", "¿Quiere salir del programa?")
@@ -326,7 +353,7 @@ botonesFrame=Frame(raiz)
 botonesFrame.grid(row=2,column=3,rowspan=4)
 #--------------------------------------------------------------
 #-----------Label y Entry del campo url------------------------
-labUrl=Label(raiz,width=15,text="Url de la Pagina",font=(Fuente))
+labUrl=Label(raiz,width=15,text="Url de la Pagina",font=('Arial Black',11))
 labUrl.grid(row=2,column=1)
 dispUrl=Entry(raiz,width=30,font=(Fuente),textvariable=varUrl)
 dispUrl.grid(row=2,column=2,sticky="W")
@@ -334,7 +361,7 @@ copiUrl=Button(botonesFrame,width=5,text="copiar",font=(Fuente),command=partial(
 copiUrl.grid(row=2,column=2,padx=10,sticky="E")
 #---------------------------------------------------------------
 #----------Label y Entry del campo Email-------------------------
-labMail=Label(raiz,width=15,text="Email registrado",font=(Fuente))
+labMail=Label(raiz,width=15,text="Email registrado",font=('Arial Black',11))
 labMail.grid(row=3,column=1)
 dispMail=Entry(raiz,width=30,font=(Fuente),textvariable=varEmail)
 dispMail.grid(row=3,column=2,sticky="W")
@@ -342,7 +369,7 @@ copiMail=Button(botonesFrame,width=5,text="copiar",font=(Fuente),command=partial
 copiMail.grid(row=3,column=2,padx=10,sticky="E")
 #----------------------------------------------------------------
 #----------Label y Entry del campo Usuario ----------------------
-labUsu=Label(raiz,width=15,text="Nombre Usuario",font=(Fuente))
+labUsu=Label(raiz,width=15,text="Nombre Usuario",font=('Arial Black',11))
 labUsu.grid(row=4,column=1)
 dispUsu=Entry(raiz,width=30,font=(Fuente),textvariable=varUsuario)
 dispUsu.grid(row=4,column=2,sticky="W")
@@ -350,8 +377,12 @@ copiUsu=Button(botonesFrame,width=5,text="copiar",font=(Fuente),command=partial(
 copiUsu.grid(row=4,column=2,padx=10,sticky="E")
 #----------------------------------------------------------------
 #----------Label , Entry y botones del campo contraseña ---------
-labContr=Label(raiz,width=15,text="Contraseña",font=(Fuente))
-labContr.grid(row=5,column=1)
+labContr=Label(raiz,width=15,text="Contraseña",font=('Arial Black',9))
+labContr.grid(row=5,column=1,sticky="w")
+#----------Boton historial  ---------------
+btnHisto=Button(raiz,text="Historial",font=('Arial Black',10),bg="#BBBBFF",state="disabled",command=partial(historial))
+btnHisto.grid(row=5,column=1,sticky="e")
+
 contrFrame=Frame(raiz)
 contrFrame.grid(row=5,column=2)
 
@@ -369,13 +400,12 @@ botonRandom.config(command=partial(generarContraseña,20))
 copiContr=Button(botonesFrame,width=5,text="copiar",font=(Fuente),command=partial(copiar,varContraseña))
 copiContr.grid(row=5,column=2,padx=10,sticky="E")
 #----------------------------------------------------------------
-#----------Boton extra Observaciones  ---------------
-btnExtra=Button(raiz,text="Observaciones",font=(Fuente))
-btnExtra.grid(row=6,column=1,sticky="s")
 #-------------------- Ingresar y eliminar registro-----------------------
-btnIngresarReg=Button(raiz,text="Ingresar Registro",font=Fuente,bg="#CCEECC",command=partial(guardarRegistro))
+btnNuevoRegistro=Button(raiz,text="Nuevo Registro",font=Fuente,bg="#CCFFCC",state="disabled")
+btnNuevoRegistro.grid(row=6,column=1,sticky="e")
+btnIngresarReg=Button(raiz,text="Guardar Registro",font=Fuente,bg="#CCFFCC",state="disabled",command=partial(guardarRegistro))
 btnIngresarReg.grid(row=6,column=2,sticky="w")
-btnEliminarReg=Button(raiz,text="Eliminar Registro",font=Fuente,bg="#EECCCC",command=partial(eliminarRegistro))
+btnEliminarReg=Button(raiz,text="Eliminar Registro",font=Fuente,bg="#FFCCCC",state="disabled",command=partial(eliminarRegistro))
 btnEliminarReg.grid(row=6,column=2,sticky="e")
 btnLimpiar=Button(raiz,text="Limpiar",font=("Arial Black",10),command=partial(limpiarTodo))
 btnLimpiar.grid(row=6,column=3 )
@@ -384,16 +414,16 @@ btnLimpiar.grid(row=6,column=3 )
 aBuscar=StringVar()
 varLista=StringVar(barraBuscar)
 
-botonBuscar=Button(barraBuscar,width=6,text="Buscar",bg="#CCCCCC")
+botonBuscar=Button(barraBuscar,width=6,text="Buscar",state="disabled",bg="#CCCCCC")
 botonBuscar.grid(row=1,column=1,sticky="W")
 botonBuscar.config(command=partial(buscar))
 
-entrada=Entry(barraBuscar,width=15,font=("Arial",14),textvariable=aBuscar,bg="#DDDDDD")
+entrada=Entry(barraBuscar,width=12,font=("Arial",14),textvariable=aBuscar,bg="#DDDDDD")
 entrada.grid(row=1,column=2,sticky="E")
 
 listResult=OptionMenu(barraBuscar,varLista,resultados)
 listResult.grid(row=1,column=3)
-listResult.config(width=42)
+listResult.config(width=46)
 
 botonCargar=Button(barraBuscar,width=7,text="Cargar",bg="#CCCCCC")
 botonCargar.grid(row=1, column=4)
@@ -410,4 +440,3 @@ infoLabel.pack(side="right",expand=True)
 
 
 raiz.mainloop()
-
