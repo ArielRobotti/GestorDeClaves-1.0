@@ -36,7 +36,6 @@ barraMenu=Menu(raiz)
 raiz.config(menu=barraMenu)
 def nuevo():
 	global grupo
-	#global resultados
 	global archivoActivo
 	if archivoActivo==None:
 		grupo=[]
@@ -169,6 +168,7 @@ def buscar():
 		for i in range (len(grupo)):
 			if entrada in grupo[i].url or entrada in grupo[i].email:
 				resultados.append([i,grupo[i].url,"/",grupo[i].email])
+
 		cantidadRes=len(resultados)
 		if cantidadRes!=0:
 			varLista.set("Seleccione un resultado y presione el boton cargar")
@@ -275,11 +275,24 @@ def importCsv():
 		with open(objetoCsv,"r") as archivo:
 			for linea in archivo:
 				csvLista.append(linea.split(","))
-		for i in csvLista:
-			url=i[0]
-			email=i[2]
-			contraseña=i[3]
-			grupo.append(Contraseña(url,email,contraseña[:len(contraseña)-1]))
+
+		if csvLista[0]==['url', 'email', ' usuario', 'contraseña\n']:
+			for i in csvLista:
+				url=i[0]
+				email=i[1]
+				usuario=i[2]
+				contraseña=i[3]
+				grupo.append(Contraseña(url,email,contraseña[:len(contraseña)-1],usuario))
+		else:
+			for i in csvLista:
+				url=i[0]
+				contraseña=i[3]
+				if '@' in i[2]:
+					email=i[2]
+					grupo.append(Contraseña(url,email,contraseña[:len(contraseña)-1],""))
+				else:
+					usuario=i[2]
+					grupo.append(Contraseña(url,"",contraseña[:len(contraseña)-1],usuario))	
 		btnNuevoRegistro.config(state="active")
 		btnIngresarReg.config(state="active")
 		botonBuscar.config(state="active")	
@@ -287,10 +300,10 @@ def importCsv():
 		pass
 def exportCsv():
 	global grupo
-	export="url,email usuario,contraseña\n"
+	export="url,email, usuario,contraseña\n"
 	if mb.askyesno("Advertencia: ","Al exportar en formato CVS cualquiera que abra el archivo CVS podrá ver las contraseñas que contiene.\n Desea exportar de todos modos?"):
 		for i in grupo:
-			export=export+i.url+','+i.email+','+i.contraseña+'\n'
+			export=export+i.url+','+i.email+','+i.usuario+','+i.contraseña+'\n'
 		extenciones=[("Archivos csv","*.csv")]
 		saveUbicacion=fd.asksaveasfilename(filetypes = extenciones, defaultextension = extenciones)
 		try:
@@ -300,8 +313,16 @@ def exportCsv():
 		except FileNotFoundError and FileNotFoundError:
 			pass
 def cerrar():
-	pass
-
+	global grupo
+	global archivoActivo
+	if archivoActivo!=None:
+		if mb.askyesno("Guardar cambios","Desea guardar los cambios efectuados?"):
+			guardar("algo")
+		limpiarTodo()
+		archivoActivo=None
+		grupo=[]
+		buscar()
+		raiz.title("KeyGest 1.0	")
 def salir():
 	respuesta= mb.askyesno("Cuidado", "¿Quiere salir del programa?")
 	if respuesta==True:
@@ -314,7 +335,7 @@ menuArchivo.add_command(label="Nuevo",command=partial(nuevo))
 menuArchivo.add_command(label="Abrir",command=abrirArchivo)
 menuArchivo.add_command(label="Guardar",command=partial(guardar,"como"))
 menuArchivo.add_command(label="Guardar Como",command=partial(guardar))
-menuArchivo.add_command(label="Cerrar")
+menuArchivo.add_command(label="Cerrar",command=partial(cerrar))
 menuArchivo.add_separator()
 menuArchivo.add_command(label="Importar CSV",command=partial(importCsv))
 menuArchivo.add_command(label="Exportar CSV",command=partial(exportCsv))
@@ -331,8 +352,6 @@ menuVer=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Ver",menu=menuVer)
 menuVer.add_command(label="Ver zócalo informativo")
 menuVer.add_command(label="Ver historial de contraseñas")
-
-
 
 menuConfiguracion=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Configuración",menu=menuConfiguracion)
@@ -437,6 +456,5 @@ infoLabel0.pack(side="left")
 
 infoLabel=Label(campoInfo,width=67,font=("Arial",10),textvariable=info,justify="left",bg="#999999")
 infoLabel.pack(side="right",expand=True)
-
 
 raiz.mainloop()
