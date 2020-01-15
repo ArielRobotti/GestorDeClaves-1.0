@@ -51,6 +51,7 @@ def nuevo():
 	btnNuevoRegistro.config(state="active")
 	btnIngresarReg.config(state="active")
 	botonBuscar.config(state="active")
+	info.set("Nuevo archivo. Introduzca los registros manualmente o importelos desde un archivo CSV")
 def abrirArchivo():
 	global grupo
 	global archivoActivo
@@ -59,26 +60,29 @@ def abrirArchivo():
 	nombre="          "+ubicacion[:30]+".........."+ubicacion[ubicacion.rfind("/"):len(ubicacion)]
 	if ubicacion!='':	
 		abrirArchivo=open(ubicacion,"r")
-		leerArchivo=abrirArchivo.read()
-		abrirArchivo.close()
-		if archivoActivo!=None:
-			guardar("como")
 		try:
-			leerArchivo=desencriptar(leerArchivo)
-			armarGrupo=eval(leerArchivo)
-			grupo=[]
-			for i in armarGrupo:
-				grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4],i[5]))
-			raiz.title("KeyGest 1.0	"+nombre)
-			archivoActivo=ubicacion
-			info.set("El archivo fue cargado correctamente")
-			limpiarTodo()
-			buscar()
-			btnNuevoRegistro.config(state="active")
-			btnIngresarReg.config(state="active")
-			botonBuscar.config(state="active")
-		except ValueError:
-			info.set("El archivo que intenta abrir no es compatible o está dañado")
+			leerArchivo=abrirArchivo.read()
+			abrirArchivo.close()
+			if archivoActivo!=None:
+				guardar("algo")
+			try:
+				leerArchivo=desencriptar(leerArchivo)
+				armarGrupo=eval(leerArchivo)
+				grupo=[]
+				for i in armarGrupo:
+					grupo.append(Contraseña(i[0],i[1],i[2],i[3],i[4],i[5]))
+				raiz.title("KeyGest 1.0	"+nombre)
+				archivoActivo=ubicacion
+				info.set("El archivo fue cargado correctamente")
+				limpiarTodo()
+				buscar()
+				btnNuevoRegistro.config(state="active")
+				btnIngresarReg.config(state="active")
+				botonBuscar.config(state="active")
+			except ValueError:
+				info.set("El archivo que intenta abrir no es compatible o está dañado")
+		except UnicodeDecodeError:
+			info.set("Archivo no permitido")		
 def guardar(activo=None):
 	global grupo
 	global archivoActivo
@@ -123,7 +127,7 @@ def guardarRegistro():
 	yaExiste=None
 	for i in range (len(grupo)):	
 		if grupo[i].url==url and grupo[i].email==email:
-			info.set("Ya existe un registro para esa cuenta")
+			
 			yaExiste=i
 			break
 	if yaExiste==None:
@@ -144,6 +148,12 @@ def guardarRegistro():
 				aHistorial=grupo[yaExiste].contraseña
 				grupo[yaExiste]=Contraseña(url,email,contraseña,usuario,observaciones)
 				grupo[yaExiste].historial.append(aHistorial)
+				info.set("Se ha actualizado la contraseña y se ha guardado la anterior en el historial del registro")
+		elif grupo[yaExiste].usuario!=usuario:
+			grupo[yaExiste].usuario=usuario
+			info.set("El contenido del registro se ha actualizado correctamente")
+		else:
+			info.set("Ya existe un registro para esa cuenta")
 def eliminarRegistro():
 	global indiceRegAct
 	try:
@@ -154,7 +164,7 @@ def eliminarRegistro():
 			buscar()
 	except TypeError:
 		info.set("Seleccione y cargue el registro que desea eliminar")
-def buscar():
+def buscar(event=None):
 	global grupo
 	global listResult
 	resultados=[]
@@ -198,13 +208,14 @@ def generarContraseña(nivel):
 			registroActivo.contraseña=nueva
 		varContraseña.set(nueva)
 		info.set("Contraseña actualizada exitosamente")
+		
 	def cancelar():
 		dispContr2.destroy()
 		btnGrabar.destroy()
 		btnCancel.destroy()
 		info.set("Operacion Cancelada")
 
-	caracteres="abcdefghijklmnñopqrstuvwxyz+-_/@ABCDEFGHIJKLMNÑOPQRSTUVWXYZ123456789"
+	caracteres="abcdefghijklmnopqrstuvwxyz+-_/@ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
 	randKey=""
 	for i in range(nivel):
 		a=caracteres[randrange(len(caracteres))]
@@ -295,9 +306,10 @@ def importCsv():
 					grupo.append(Contraseña(url,"",contraseña[:len(contraseña)-1],usuario))	
 		btnNuevoRegistro.config(state="active")
 		btnIngresarReg.config(state="active")
-		botonBuscar.config(state="active")	
+		botonBuscar.config(state="active")
+		info.set("Archivo CVS importao correctamente. Fueron agregados "+str(len(csvLista))+" registros al archivo")
 	except FileNotFoundError:
-		pass
+		pass	
 def exportCsv():
 	global grupo
 	export="url,email, usuario,contraseña\n"
@@ -327,18 +339,27 @@ def salir():
 	respuesta= mb.askyesno("Cuidado", "¿Quiere salir del programa?")
 	if respuesta==True:
 		raiz.destroy()	
+#--------------------- Atajos de teclado-------------------
+def shortcut(event):
+	if event.char=="": abrirArchivo()
+	elif event.char=="": guardar("algo")
+	elif event.char=="": nuevo()
+	elif event.char=="": exportCsv()
+	elif event.char=="\t": importCsv()
+raiz.bind("<Key>", shortcut)
+
 #-------------------- Barra de Menú------------------------
 
 menuArchivo=Menu(barraMenu,tearoff=0)
 barraMenu.add_cascade(label="Archivo",menu=menuArchivo)
-menuArchivo.add_command(label="Nuevo",command=partial(nuevo))
-menuArchivo.add_command(label="Abrir",command=abrirArchivo)
-menuArchivo.add_command(label="Guardar",command=partial(guardar,"como"))
+menuArchivo.add_command(label="Nuevo                              Ctrl/n",command=partial(nuevo))
+menuArchivo.add_command(label="Abrir                                Ctrl/o",command=abrirArchivo)
+menuArchivo.add_command(label="Guardar                           Ctrl/s",command=partial(guardar,"como"))
 menuArchivo.add_command(label="Guardar Como",command=partial(guardar))
 menuArchivo.add_command(label="Cerrar",command=partial(cerrar))
 menuArchivo.add_separator()
-menuArchivo.add_command(label="Importar CSV",command=partial(importCsv))
-menuArchivo.add_command(label="Exportar CSV",command=partial(exportCsv))
+menuArchivo.add_command(label="Importar CSV                  Ctrl/i",command=partial(importCsv))
+menuArchivo.add_command(label="Exportar CSV                  Ctrl/e",command=partial(exportCsv))
 menuArchivo.add_separator()
 menuArchivo.add_command(label="Salir",activebackground="#AA3333",command=partial(salir))
 
@@ -439,6 +460,7 @@ botonBuscar.config(command=partial(buscar))
 
 entrada=Entry(barraBuscar,width=12,font=("Arial",14),textvariable=aBuscar,bg="#DDDDDD")
 entrada.grid(row=1,column=2,sticky="E")
+entrada.bind('<Return>', buscar)
 
 listResult=OptionMenu(barraBuscar,varLista,resultados)
 listResult.grid(row=1,column=3)
